@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build
+build/
+dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Uploads
+uploads/*
+!uploads/.gitkeep
+
+# Database
+*.sqlite
+*.db
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Docker
+docker-data/
+
+# Coverage
+coverage/
+
+# Temp
+tmp/
+temp/
+
+docs
+database

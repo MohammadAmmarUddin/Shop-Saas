@@ -1,0 +1,41 @@
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+  root: __dirname,
+  server: {
+    port: 3000,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+      '/uploads': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+    },
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    minify: 'esbuild',
+    emptyOutDir: true,
+    rollupOptions: {
+      input: 'index.html',
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          charts: ['chart.js', 'react-chartjs-2'],
+        },
+      },
+    },
+  },
+});

@@ -74,35 +74,36 @@ A complete, production-ready SaaS-based point-of-sale (POS) and inventory manage
 shopmanager/
 ├── backend/
 │   ├── src/
-│   │   ├── config/          # Database, logger, socket config
-│   │   ├── controllers/     # Route handlers
-│   │   ├── middleware/       # Auth, validation, error handling
-│   │   ├── models/          # Sequelize models
-│   │   ├── routes/          # API routes
-│   │   ├── services/        # Business logic
-│   │   ├── utils/           # Helper functions
+│   │   ├── config/          # Database, logger, socket, seed config
+│   │   ├── controllers/     # Route handlers (auth, products, sales, etc.)
+│   │   ├── middleware/      # Auth (JWT), validation (Joi), error handling
+│   │   ├── models/          # Sequelize models (16 tables)
+│   │   ├── routes/          # API route definitions
+│   │   ├── services/        # Business logic (tenant, invoice, backup, etc.)
+│   │   ├── utils/           # Helpers, response builder, permissions
 │   │   └── validators/      # Joi validation schemas
-│   ├── uploads/
-│   └── logs/
+│   ├── uploads/             # File uploads directory
+│   └── logs/                # Application logs
 ├── frontend/
 │   ├── public/
 │   ├── src/
-│   │   ├── components/      # Reusable UI components
-│   │   ├── context/         # React context providers
-│   │   ├── hooks/           # Custom React hooks
-│   │   ├── pages/           # Route pages
-│   │   ├── services/        # API service layer
-│   │   └── utils/           # Utilities & constants
+│   │   ├── components/      # Reusable UI (15 common + 4 layout components)
+│   │   ├── context/         # React context (Auth, Theme, Store)
+│   │   ├── hooks/           # Custom hooks (useAuth, useTheme, usePagination)
+│   │   ├── pages/           # 23 route pages (Login, POS, Dashboard, etc.)
+│   │   ├── services/        # Axios API layer with token refresh interceptor
+│   │   └── utils/           # Formatters, constants, helpers
 │   └── package.json
 ├── database/
-│   └── schema.sql           # Database schema
+│   └── schema.sql           # Full MySQL schema (16 tables, indexes)
 ├── docker/
-│   ├── docker-compose.yml   # Docker services
-│   ├── Dockerfile.backend   # Backend container
-│   ├── Dockerfile.frontend  # Frontend container
-│   └── nginx.conf           # Nginx configuration
+│   ├── docker-compose.yml   # MySQL + Backend + Frontend + phpMyAdmin
+│   ├── Dockerfile.backend   # Node.js 18 Alpine
+│   ├── Dockerfile.frontend  # Nginx static serve
+│   └── nginx.conf           # Production reverse proxy config
 └── docs/
-    └── api.md               # API documentation
+    ├── api.md               # Full API reference
+    └── deployment.md        # Production deployment guide
 ```
 
 ## Quick Start
@@ -140,7 +141,12 @@ shopmanager/
 5. **Access the application**
    - Frontend: http://localhost:3000
    - API: http://localhost:5000/api
-   - Default admin: admin@shopmanager.com / admin123
+
+### Default Credentials (after seeding)
+| Role | Email | Password | Login redirect |
+|---|---|---|---|
+| Super Admin | `admin@shopmanager.com` | `admin123456` | `/admin/tenants` |
+| Store Owner | `dummy@store.com` | `password123` | `/app/dashboard` |
 
 ### Docker Setup
 ```bash
@@ -162,14 +168,13 @@ docker-compose -f docker/docker-compose.yml up -d
 | JWT_REFRESH_SECRET | Refresh token secret | - |
 | CORS_ORIGIN | Allowed CORS origin | http://localhost:3000 |
 
-## Subscription Plans
+## Subscription Plans (seeded)
 
-| Plan | Price/mo | Products | Staff | Features |
-|---|---|---|---|---|
-| Free | $0 | 100 | 2 | POS, Reports, Inventory |
-| Starter | $19.99 | 1,000 | 5 | + Barcode, Backup |
-| Professional | $49.99 | 5,000 | 15 | + Multi-store, API |
-| Enterprise | $99.99 | Unlimited | Unlimited | + Custom domain, All features |
+| Plan | Price/mo | Products | Staff | Customers | Features |
+|---|---|---|---|---|---|
+| Free | $0 | 100 | 2 | 500 | Basic reporting, Product & Sales mgmt |
+| Basic | $29.99 | 1,000 | 10 | 5,000 | + Inventory, Supplier, Purchase, Expense mgmt |
+| Pro | $79.99 | 10,000 | 50 | 50,000 | + Pharmacy, Prescriptions, Barcode, API, Multi-warehouse |
 
 ## API Documentation
 

@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: shopmanager-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root_password}
+      MYSQL_DATABASE: shopmanager
+      MYSQL_USER: shopmanager
+      MYSQL_PASSWORD: ${DB_PASSWORD:-shopmanager_pass}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    command: --default-authentication-plugin=mysql_native_password --innodb_buffer_pool_size=256M --innodb_log_file_size=64M --max_connections=50 --query_cache_size=32M --tmp_table_size=32M --max_heap_table_size=32M
+    networks:
+      - shopmanager-network
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../docker/Dockerfile.backend
+    container_name: shopmanager-backend
+    restart: unless-stopped
+    depends_on:
+      - mysql
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: shopmanager
+      DB_USER: shopmanager
+      DB_PASSWORD: ${DB_PASSWORD:-shopmanager_pass}
+      JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-this-refresh-secret}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+    ports:
+      - "5000:5000"
+    volumes:
+      - backend_uploads:/app/uploads
+      - backend_logs:/app/logs
+    networks:
+      - shopmanager-network
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../docker/Dockerfile.frontend
+    container_name: shopmanager-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+    networks:
+      - shopmanager-network
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: shopmanager-phpmyadmin
+    restart: unless-stopped
+    depends_on:
+      - mysql
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: shopmanager
+      PMA_PASSWORD: ${DB_PASSWORD:-shopmanager_pass}
+      UPLOAD_LIMIT: 64M
+    ports:
+      - "8080:80"
+    networks:
+      - shopmanager-network
+
+volumes:
+  mysql_data:
+  backend_uploads:
+  backend_logs:
+
+networks:
+  shopmanager-network:
+    driver: bridge
