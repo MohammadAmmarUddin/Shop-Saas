@@ -1,25 +1,24 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FiPlus, FiEdit2, FiTrash2, FiFolder } from 'react-icons/fi';
-import { toast } from '../utils/swal';
+import { toast, confirmAction } from '../utils/swal';
 import { categoryService } from '../services/categoryService';
 import DataTable from '../components/common/DataTable.jsx';
 import PageHeader from '../components/common/PageHeader.jsx';
 import Button from '../components/common/Button.jsx';
 import Modal from '../components/common/Modal.jsx';
 import Input from '../components/common/Input.jsx';
-import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
 import StatusBadge from '../components/common/StatusBadge.jsx';
 import usePagination from '../hooks/usePagination';
+
+const initialForm = { name: '', description: '', sortOrder: 0, status: 'active' };
 
 const CategoriesPage = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
-  const [deleteId, setDeleteId] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [form, setForm] = useState({ name: '', description: '', sortOrder: 0, status: 'active' });
+  const [form, setForm] = useState({ ...initialForm });
   const [formErrors, setFormErrors] = useState({});
   const pagination = usePagination();
 
@@ -47,18 +46,22 @@ const CategoriesPage = () => {
 
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
 
-  const openCreate = () => {
+  const resetForm = () => {
     setEditItem(null);
-    setForm({ name: '', description: '', sortOrder: 0, status: 'active' });
+    setForm({ ...initialForm });
     setFormErrors({});
+  };
+
+  const openCreate = () => {
+    resetForm();
     setShowModal(true);
   };
 
   const openEdit = (cat) => {
     setEditItem(cat);
     setForm({
-      name: cat.name || '',
-      description: cat.description || '',
+      name: cat.name ?? '',
+      description: cat.description ?? '',
       sortOrder: cat.sortOrder ?? cat.sort_order ?? 0,
       status: cat.status || (cat.is_active === false ? 'inactive' : 'active'),
     });
@@ -68,7 +71,7 @@ const CategoriesPage = () => {
 
   const validate = () => {
     const errs = {};
-    if (!form.name.trim()) errs.name = 'Category name is required';
+    if (!form.name?.trim()) errs.name = 'Category name is required';
     setFormErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -99,18 +102,19 @@ const CategoriesPage = () => {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    setDeleting(true);
+  const handleDelete = async (id) => {
+    const confirmed = await confirmAction({
+      title: 'Delete Category',
+      text: 'Are you sure? This may affect products in this category.',
+      confirmText: 'Yes, delete it!',
+    });
+    if (!confirmed) return;
     try {
-      await categoryService.delete(deleteId);
+      await categoryService.delete(id);
       toast.success('Category deleted');
-      setDeleteId(null);
       fetchCategories();
     } catch {
       toast.error('Failed to delete category');
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -140,7 +144,7 @@ const CategoriesPage = () => {
           <button onClick={(e) => { e.stopPropagation(); openEdit(row); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-primary-600">
             <FiEdit2 size={16} />
           </button>
-          <button onClick={(e) => { e.stopPropagation(); setDeleteId(row._id || row.id); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-danger-600">
+          <button onClick={(e) => { e.stopPropagation(); handleDelete(row._id || row.id); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-danger-600">
             <FiTrash2 size={16} />
           </button>
         </div>
@@ -190,8 +194,6 @@ const CategoriesPage = () => {
           </Button>
         </div>
       </Modal>
-
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} loading={deleting} title="Delete Category" message="Are you sure? This may affect products in this category." confirmLabel="Delete" variant="danger" />
     </div>
   );
 };

@@ -73,7 +73,7 @@ const createCustomer = async (req, res, next) => {
   try {
     const {
       name, email, phone, address, city, state, postal_code,
-      country, notes,
+      notes,
     } = req.body;
 
     const customer = await prisma.customer.create({
@@ -86,7 +86,6 @@ const createCustomer = async (req, res, next) => {
         city: city || null,
         state: state || null,
         postal_code: postal_code || null,
-        country: country || 'US',
         notes: notes || null,
       },
     });
@@ -106,7 +105,7 @@ const updateCustomer = async (req, res, next) => {
 
     const allowedFields = [
       'name', 'email', 'phone', 'address', 'city', 'state',
-      'postal_code', 'country', 'notes', 'is_active',
+      'postal_code', 'notes', 'is_active',
     ];
 
     const data = {};

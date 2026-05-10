@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FiSave, FiShield, FiMail, FiCreditCard, FiSettings, FiGlobe } from 'react-icons/fi';
+import { FiSave, FiShield, FiMail, FiCreditCard, FiSettings } from 'react-icons/fi';
 import { toast } from '../utils/swal';
 import Card from '../components/common/Card.jsx';
 import Button from '../components/common/Button.jsx';

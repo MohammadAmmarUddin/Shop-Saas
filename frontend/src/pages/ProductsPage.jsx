@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { FiPlus, FiEdit2, FiTrash2, FiPackage, FiAlertTriangle } from 'react-icons/fi';
-import { toast } from '../utils/swal';
+import { FiPlus, FiEdit2, FiTrash2, FiPackage } from 'react-icons/fi';
+import { toast, confirmAction } from '../utils/swal';
 import { productService } from '../services/productService';
-import { formatCurrency, formatDate } from '../utils/helpers';
+import { formatCurrency } from '../utils/helpers';
 import DataTable from '../components/common/DataTable.jsx';
 import PageHeader from '../components/common/PageHeader.jsx';
 import Button from '../components/common/Button.jsx';
-import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
 import StatusBadge from '../components/common/StatusBadge.jsx';
 import usePagination from '../hooks/usePagination';
 import useDebounce from '../hooks/useDebounce';
@@ -20,8 +19,6 @@ const ProductsPage = () => {
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [stockFilter, setStockFilter] = useState('all');
-  const [deleteId, setDeleteId] = useState(null);
-  const [deleting, setDeleting] = useState(false);
   const debouncedSearch = useDebounce(search, 400);
   const pagination = usePagination();
 
@@ -61,18 +58,19 @@ const ProductsPage = () => {
     fetchProducts();
   }, [fetchProducts]);
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    setDeleting(true);
+  const handleDelete = async (id) => {
+    const confirmed = await confirmAction({
+      title: 'Delete Product',
+      text: 'Are you sure you want to delete this product? This action cannot be undone.',
+      confirmText: 'Yes, delete it!',
+    });
+    if (!confirmed) return;
     try {
-      await productService.delete(deleteId);
+      await productService.delete(id);
       toast.success('Product deleted successfully');
-      setDeleteId(null);
       fetchProducts();
     } catch {
       toast.error('Failed to delete product');
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -130,7 +128,7 @@ const ProductsPage = () => {
             <FiEdit2 size={16} />
           </Link>
           <button
-            onClick={(e) => { e.stopPropagation(); setDeleteId(row._id || row.id); }}
+            onClick={(e) => { e.stopPropagation(); handleDelete(row._id || row.id); }}
             className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-danger-600 transition-colors"
           >
             <FiTrash2 size={16} />
@@ -201,17 +199,6 @@ const ProductsPage = () => {
         emptyAction
         emptyActionLabel="Add Product"
         onEmptyAction={() => navigate('/app/products/new')}
-      />
-
-      <ConfirmDialog
-        isOpen={!!deleteId}
-        onClose={() => setDeleteId(null)}
-        onConfirm={handleDelete}
-        loading={deleting}
-        title="Delete Product"
-        message="Are you sure you want to delete this product? This action cannot be undone."
-        confirmLabel="Delete"
-        variant="danger"
       />
     </div>
   );

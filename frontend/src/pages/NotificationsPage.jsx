@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FiBell, FiCheck, FiCheckCircle, FiTrash2, FiInfo, FiAlertTriangle, FiShoppingCart, FiPackage, FiDollarSign, FiUser } from 'react-icons/fi';
-import { toast } from '../utils/swal';
+import { FiBell, FiCheckCircle, FiTrash2, FiInfo, FiAlertTriangle, FiShoppingCart, FiPackage, FiDollarSign, FiUser } from 'react-icons/fi';
+import { toast, confirmAction } from '../utils/swal';
 import { notificationService } from '../services/notificationService';
 import { timeAgo } from '../utils/helpers';
 import PageHeader from '../components/common/PageHeader.jsx';
@@ -8,7 +8,6 @@ import Button from '../components/common/Button.jsx';
 import Card from '../components/common/Card.jsx';
 import EmptyState from '../components/common/EmptyState.jsx';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
-import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
 
 const iconMap = {
   info: FiInfo,
@@ -38,7 +37,6 @@ const normalizeNotification = (notification) => ({
 const NotificationsPage = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showClearDialog, setShowClearDialog] = useState(false);
   const [clearing, setClearing] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
@@ -70,12 +68,17 @@ const NotificationsPage = () => {
   };
 
   const clearAll = async () => {
+    const confirmed = await confirmAction({
+      title: 'Clear All Notifications',
+      text: 'Are you sure you want to delete all notifications? This action cannot be undone.',
+      confirmText: 'Clear All',
+    });
+    if (!confirmed) return;
     setClearing(true);
     try {
       await notificationService.clearAll();
       setNotifications([]);
       toast.success('All notifications cleared');
-      setShowClearDialog(false);
     } catch { toast.error('Failed to clear notifications'); }
     finally { setClearing(false); }
   };
@@ -107,7 +110,7 @@ const NotificationsPage = () => {
               </Button>
             )}
             {notifications.length > 0 && (
-              <Button variant="danger" size="sm" icon={FiTrash2} onClick={() => setShowClearDialog(true)}>
+              <Button variant="danger" size="sm" icon={FiTrash2} onClick={clearAll} loading={clearing}>
                 Clear All
               </Button>
             )}
@@ -155,17 +158,6 @@ const NotificationsPage = () => {
           </div>
         )}
       </Card>
-
-      <ConfirmDialog
-        isOpen={showClearDialog}
-        onClose={() => setShowClearDialog(false)}
-        onConfirm={clearAll}
-        loading={clearing}
-        title="Clear All Notifications"
-        message="Are you sure you want to delete all notifications? This action cannot be undone."
-        confirmLabel="Clear All"
-        variant="danger"
-      />
     </div>
   );
 };

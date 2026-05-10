@@ -33,6 +33,7 @@ const POSPage = () => {
   const [productLoading, setProductLoading] = useState(false);
   const barcodeRef = useRef(null);
   const debouncedSearch = useDebounce(searchQuery, 400);
+  const debouncedCustomerSearch = useDebounce(customerSearch, 400);
 
   const normalizeProduct = (product) => ({
     ...product,
@@ -70,42 +71,41 @@ const POSPage = () => {
   }, []);
 
   useEffect(() => {
-    if (debouncedSearch) {
-      const fetchProducts = async () => {
-        setProductLoading(true);
-        try {
-          const res = await productService.getAll({ search: debouncedSearch, limit: 50 });
-          const payload = res.data?.data || res.data || {};
-          const rows = Array.isArray(payload.products) ? payload.products : Array.isArray(payload) ? payload : [];
-          setProducts(rows.map(normalizeProduct));
-        } catch {
-        } finally {
-          setProductLoading(false);
-        }
-      };
-      fetchProducts();
-    }
+    if (!debouncedSearch) return;
+    const fetchProducts = async () => {
+      setProductLoading(true);
+      try {
+        const res = await productService.getAll({ search: debouncedSearch, limit: 50 });
+        const payload = res.data?.data || res.data || {};
+        const rows = Array.isArray(payload.products) ? payload.products : Array.isArray(payload) ? payload : [];
+        setProducts(rows.map(normalizeProduct));
+      } catch {
+      } finally {
+        setProductLoading(false);
+      }
+    };
+    fetchProducts();
   }, [debouncedSearch]);
 
   useEffect(() => {
-    if (selectedCategory !== 'all') {
-      const fetchFiltered = async () => {
-        setProductLoading(true);
-        try {
-          const res = await productService.getAll({ category: selectedCategory, limit: 200 });
-          const payload = res.data?.data || res.data || {};
-          const rows = Array.isArray(payload.products) ? payload.products : Array.isArray(payload) ? payload : [];
-          setProducts(rows.map(normalizeProduct));
-        } catch {
-        } finally {
-          setProductLoading(false);
-        }
-      };
-      fetchFiltered();
-    }
+    if (selectedCategory === 'all') return;
+    const fetchFiltered = async () => {
+      setProductLoading(true);
+      try {
+        const res = await productService.getAll({ category: selectedCategory, limit: 200 });
+        const payload = res.data?.data || res.data || {};
+        const rows = Array.isArray(payload.products) ? payload.products : Array.isArray(payload) ? payload : [];
+        setProducts(rows.map(normalizeProduct));
+      } catch {
+      } finally {
+        setProductLoading(false);
+      }
+    };
+    fetchFiltered();
   }, [selectedCategory]);
 
   const handleBarcodeScan = useCallback(async (barcode) => {
+    if (!barcode) return;
     try {
       const res = await productService.getByBarcode(barcode);
       const product = normalizeProduct(res.data?.data || res.data);
@@ -183,18 +183,18 @@ const POSPage = () => {
   const taxAmount = (subtotal - discountAmount) * taxRate;
   const grandTotal = subtotal - discountAmount + taxAmount;
 
-  const fetchCustomers = async (query) => {
+  const fetchCustomers = useCallback(async (query) => {
     try {
       const res = await customerService.getAll({ search: query, limit: 20 });
       const payload = res.data?.data || res.data || {};
       const rows = Array.isArray(payload.customers) ? payload.customers : Array.isArray(payload) ? payload : [];
       setCustomers(rows.map(normalizeCustomer));
     } catch {}
-  };
+  }, []);
 
   useEffect(() => {
-    if (showCustomerModal) fetchCustomers(customerSearch);
-  }, [showCustomerModal, customerSearch]);
+    if (showCustomerModal) fetchCustomers(debouncedCustomerSearch || '');
+  }, [showCustomerModal, debouncedCustomerSearch, fetchCustomers]);
 
   const handleCompleteSale = async () => {
     if (cart.length === 0) {

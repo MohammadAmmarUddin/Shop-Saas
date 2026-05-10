@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FiArrowLeft, FiPrinter, FiMail, FiTrash2, FiShoppingCart } from 'react-icons/fi';
-import { toast } from '../utils/swal';
+import { useParams, useNavigate } from 'react-router-dom';
+import { FiArrowLeft, FiPrinter, FiTrash2 } from 'react-icons/fi';
+import { toast, confirmAction } from '../utils/swal';
 import { saleService } from '../services/saleService';
 import { formatCurrency, formatDateTime } from '../utils/helpers';
 import Button from '../components/common/Button.jsx';
 import Card from '../components/common/Card.jsx';
-import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
 import StatusBadge from '../components/common/StatusBadge.jsx';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import PageHeader from '../components/common/PageHeader.jsx';
@@ -16,7 +15,6 @@ const SaleDetailPage = () => {
   const navigate = useNavigate();
   const [sale, setSale] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -53,15 +51,19 @@ const SaleDetailPage = () => {
   const handlePrint = () => { window.print(); };
 
   const handleDelete = async () => {
+    const confirmed = await confirmAction({
+      title: 'Delete Sale',
+      text: 'Are you sure you want to delete this sale? This action cannot be undone.',
+      confirmText: 'Yes, delete it!',
+    });
+    if (!confirmed) return;
     setDeleting(true);
     try {
       await saleService.delete(id);
       toast.success('Sale deleted');
-      setShowDelete(false);
       navigate('/app/sales');
     } catch {
       toast.error('Failed to delete sale');
-    } finally {
       setDeleting(false);
     }
   };
@@ -78,7 +80,7 @@ const SaleDetailPage = () => {
           <div className="flex items-center gap-2">
             <Button variant="secondary" icon={FiArrowLeft} onClick={() => navigate('/app/sales')}>Back</Button>
             <Button variant="secondary" icon={FiPrinter} onClick={handlePrint}>Print</Button>
-            <Button variant="danger" icon={FiTrash2} onClick={() => setShowDelete(true)}>Delete</Button>
+            <Button variant="danger" icon={FiTrash2} onClick={handleDelete} loading={deleting}>Delete</Button>
           </div>
         }
       />
@@ -166,16 +168,6 @@ const SaleDetailPage = () => {
           </Card>
         )}
       </div>
-      <ConfirmDialog
-        isOpen={showDelete}
-        onClose={() => setShowDelete(false)}
-        onConfirm={handleDelete}
-        loading={deleting}
-        title="Delete Sale"
-        message="Are you sure you want to delete this sale? This action cannot be undone."
-        confirmLabel="Delete"
-        variant="danger"
-      />
     </div>
   );
 };

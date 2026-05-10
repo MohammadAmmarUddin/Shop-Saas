@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiBarChart2, FiDollarSign, FiPackage, FiUsers, FiPrinter, FiDownload } from 'react-icons/fi';
+import { FiBarChart2, FiDollarSign, FiPackage, FiUsers } from 'react-icons/fi';
 import { Bar, Line, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler,
@@ -12,9 +12,7 @@ import { formatCurrency, formatNumber } from '../utils/helpers';
 import { CHART_COLORS, CHART_COLOR_ARRAYS } from '../utils/constants';
 import PageHeader from '../components/common/PageHeader.jsx';
 import Card from '../components/common/Card.jsx';
-import Button from '../components/common/Button.jsx';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
-import ExportButton from '../components/common/ExportButton.jsx';
 
 const tabs = [
   { id: 'sales', label: 'Sales', icon: FiDollarSign },

@@ -1,17 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FiPlus, FiEdit2, FiTrash2, FiEye, FiToggleLeft, FiToggleRight } from 'react-icons/fi';
-import { toast } from '../utils/swal';
+import { toast, confirmAction } from '../utils/swal';
 import { tenantService } from '../services/tenantService';
-import { formatDate, formatCurrency } from '../utils/helpers';
+import { formatDate } from '../utils/helpers';
 import DataTable from '../components/common/DataTable.jsx';
 import PageHeader from '../components/common/PageHeader.jsx';
 import Button from '../components/common/Button.jsx';
 import Modal from '../components/common/Modal.jsx';
 import Input from '../components/common/Input.jsx';
-import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
 import StatusBadge from '../components/common/StatusBadge.jsx';
-import Card from '../components/common/Card.jsx';
 import usePagination from '../hooks/usePagination';
+
+const initialForm = { name: '', email: '', phone: '', address: '', plan: 'free', status: 'trial' };
 
 const TenantsPage = () => {
   const [tenants, setTenants] = useState([]);
@@ -19,13 +19,11 @@ const TenantsPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [viewItem, setViewItem] = useState(null);
-  const [deleteId, setDeleteId] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [form, setForm] = useState({ name: '', email: '', phone: '', address: '', plan: 'free', status: 'trial' });
+  const [form, setForm] = useState({ ...initialForm });
   const [formErrors, setFormErrors] = useState({});
   const pagination = usePagination();
 
@@ -42,13 +40,35 @@ const TenantsPage = () => {
 
   useEffect(() => { fetchTenants(); }, [fetchTenants]);
 
-  const openCreate = () => { setEditItem(null); setForm({ name: '', email: '', phone: '', address: '', plan: 'free', status: 'trial' }); setFormErrors({}); setShowModal(true); };
-  const openEdit = (t) => { setEditItem(t); setForm({ name: t.name || '', email: t.email || '', phone: t.phone || '', address: t.address || '', plan: t.plan || 'free', status: t.status || 'active' }); setFormErrors({}); setShowModal(true); };
+  const resetForm = () => {
+    setEditItem(null);
+    setForm({ ...initialForm });
+    setFormErrors({});
+  };
+
+  const openCreate = () => {
+    resetForm();
+    setShowModal(true);
+  };
+
+  const openEdit = (t) => {
+    setEditItem(t);
+    setForm({
+      name: t.name ?? '',
+      email: t.email ?? '',
+      phone: t.phone ?? '',
+      address: t.address ?? '',
+      plan: t.plan || 'free',
+      status: t.status || 'active',
+    });
+    setFormErrors({});
+    setShowModal(true);
+  };
 
   const validate = () => {
     const errs = {};
-    if (!form.name.trim()) errs.name = 'Store name is required';
-    if (!form.email.trim()) errs.email = 'Email is required';
+    if (!form.name?.trim()) errs.name = 'Store name is required';
+    if (!form.email?.trim()) errs.email = 'Email is required';
     else if (!/\S+@\S+\.\S+/.test(form.email)) errs.email = 'Invalid email';
     setFormErrors(errs);
     return Object.keys(errs).length === 0;
@@ -65,16 +85,26 @@ const TenantsPage = () => {
     finally { setSaving(false); }
   };
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    setDeleting(true);
-    try { await tenantService.delete(deleteId); toast.success('Tenant deleted'); setDeleteId(null); fetchTenants(); }
+  const handleDelete = async (id) => {
+    const confirmed = await confirmAction({
+      title: 'Delete Store',
+      text: 'Are you sure you want to delete this store? All data will be lost.',
+      confirmText: 'Yes, delete it!',
+    });
+    if (!confirmed) return;
+    try { await tenantService.delete(id); toast.success('Tenant deleted'); fetchTenants(); }
     catch { toast.error('Failed to delete tenant'); }
-    finally { setDeleting(false); }
   };
 
   const toggleStatus = async (id, currentStatus) => {
     const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
+    const confirmed = await confirmAction({
+      title: `${newStatus === 'active' ? 'Activate' : 'Suspend'} Store`,
+      text: `Are you sure you want to ${newStatus === 'active' ? 'activate' : 'suspend'} this store?`,
+      confirmText: `Yes, ${newStatus === 'active' ? 'activate' : 'suspend'}`,
+      confirmButtonColor: newStatus === 'active' ? '#22c55e' : '#ef4444',
+    });
+    if (!confirmed) return;
     try { await tenantService.updateStatus(id, newStatus); toast.success(`Store ${newStatus}`); fetchTenants(); }
     catch { toast.error('Failed to update status'); }
   };
@@ -93,7 +123,7 @@ const TenantsPage = () => {
           <button onClick={(e) => { e.stopPropagation(); setViewItem(row); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-primary-600"><FiEye size={16} /></button>
           <button onClick={(e) => { e.stopPropagation(); openEdit(row); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-primary-600"><FiEdit2 size={16} /></button>
           <button onClick={(e) => { e.stopPropagation(); toggleStatus(row._id || row.id, row.status); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-warning-600">{row.status === 'active' ? <FiToggleRight size={16} /> : <FiToggleLeft size={16} />}</button>
-          <button onClick={(e) => { e.stopPropagation(); setDeleteId(row._id || row.id); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-danger-600"><FiTrash2 size={16} /></button>
+          <button onClick={(e) => { e.stopPropagation(); handleDelete(row._id || row.id); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-danger-600"><FiTrash2 size={16} /></button>
         </div>
       ),
     },
@@ -155,8 +185,6 @@ const TenantsPage = () => {
           <Button variant="primary" onClick={handleSave} loading={saving}>{editItem ? 'Update' : 'Create'}</Button>
         </div>
       </Modal>
-
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} loading={deleting} title="Delete Store" message="Are you sure you want to delete this store? All data will be lost." confirmLabel="Delete" variant="danger" />
     </div>
   );
 };

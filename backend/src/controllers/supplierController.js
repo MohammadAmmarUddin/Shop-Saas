@@ -1,6 +1,7 @@
 const prisma = require('../prisma');
 const response = require('../utils/response');
 const { paginate, getPaginationMeta } = require('../utils/helpers');
+const logger = require('../config/logger');
 
 const listSuppliers = async (req, res, next) => {
   try {
@@ -62,27 +63,35 @@ const createSupplier = async (req, res, next) => {
   try {
     const {
       name, email, phone, address, city, state, postal_code,
-      country, company, notes,
+      company, notes,
     } = req.body;
 
-    const supplier = await prisma.supplier.create({
-      data: {
-        store_id: req.tenantId,
-        name,
-        email: email || null,
-        phone: phone || null,
-        address: address || null,
-        city: city || null,
-        state: state || null,
-        postal_code: postal_code || null,
-        country: country || 'US',
-        company: company || null,
-        notes: notes || null,
-      },
-    });
+    if (!name || !name.toString().trim()) {
+      return response.validationError(res, [{ field: 'name', message: 'Supplier name is required' }], 'Validation failed');
+    }
+
+    const data = {
+      store_id: req.tenantId,
+      name: name.toString().trim(),
+      email: email || null,
+      phone: phone || null,
+      address: address || null,
+      city: city || null,
+      state: state || null,
+      postal_code: postal_code || null,
+      company: company || null,
+      notes: notes || null,
+    };
+
+    logger.info('Creating supplier:', { ...data, store_id: undefined });
+
+    const supplier = await prisma.supplier.create({ data });
 
     response.created(res, supplier, 'Supplier created successfully');
   } catch (error) {
+    if (error.code === 'P2002') {
+      return response.error(res, 'A supplier with this information already exists.', 409);
+    }
     next(error);
   }
 };
@@ -96,7 +105,7 @@ const updateSupplier = async (req, res, next) => {
 
     const allowedFields = [
       'name', 'email', 'phone', 'address', 'city', 'state',
-      'postal_code', 'country', 'company', 'notes', 'is_active',
+      'postal_code', 'company', 'notes', 'is_active',
     ];
 
     const data = {};
@@ -108,12 +117,22 @@ const updateSupplier = async (req, res, next) => {
       return response.error(res, 'No valid fields to update', 400);
     }
 
+    if (data.name !== undefined && !data.name.toString().trim()) {
+      return response.validationError(res, [{ field: 'name', message: 'Supplier name cannot be empty' }], 'Validation failed');
+    }
+    if (data.name) data.name = data.name.toString().trim();
+
+    logger.info('Updating supplier:', { id: req.params.id, ...data, store_id: undefined });
+
     const updated = await prisma.supplier.update({
       where: { id: supplier.id },
       data,
     });
     response.success(res, updated, 'Supplier updated successfully');
   } catch (error) {
+    if (error.code === 'P2002') {
+      return response.error(res, 'A supplier with this information already exists.', 409);
+    }
     next(error);
   }
 };

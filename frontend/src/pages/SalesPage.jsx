@@ -1,13 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiEye, FiTrash2, FiPrinter } from 'react-icons/fi';
-import { toast } from '../utils/swal';
+import { FiEye, FiTrash2 } from 'react-icons/fi';
+import { toast, confirmAction } from '../utils/swal';
 import { saleService } from '../services/saleService';
-import { formatCurrency, formatDate, formatDateTime } from '../utils/helpers';
+import { formatCurrency, formatDateTime } from '../utils/helpers';
 import DataTable from '../components/common/DataTable.jsx';
 import PageHeader from '../components/common/PageHeader.jsx';
-import Button from '../components/common/Button.jsx';
-import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
 import StatusBadge from '../components/common/StatusBadge.jsx';
 import Modal from '../components/common/Modal.jsx';
 import usePagination from '../hooks/usePagination';
@@ -16,8 +14,6 @@ const SalesPage = () => {
   const navigate = useNavigate();
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [deleteId, setDeleteId] = useState(null);
-  const [deleting, setDeleting] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -71,18 +67,19 @@ const SalesPage = () => {
 
   useEffect(() => { fetchSales(); }, [fetchSales]);
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    setDeleting(true);
+  const handleDelete = async (id) => {
+    const confirmed = await confirmAction({
+      title: 'Delete Sale',
+      text: 'Are you sure you want to delete this sale?',
+      confirmText: 'Yes, delete it!',
+    });
+    if (!confirmed) return;
     try {
-      await saleService.delete(deleteId);
+      await saleService.delete(id);
       toast.success('Sale deleted');
-      setDeleteId(null);
-      fetchSales();
+      await fetchSales();
     } catch {
       toast.error('Failed to delete sale');
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -130,7 +127,7 @@ const SalesPage = () => {
           <button onClick={(e) => { e.stopPropagation(); setViewSale(row); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-primary-600">
             <FiEye size={16} />
           </button>
-          <button onClick={(e) => { e.stopPropagation(); setDeleteId(row._id || row.id); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-danger-600">
+          <button onClick={(e) => { e.stopPropagation(); handleDelete(row.id); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-danger-600">
             <FiTrash2 size={16} />
           </button>
         </div>
@@ -171,7 +168,7 @@ const SalesPage = () => {
         loading={loading}
         exportable
         exportFilename="sales"
-        onRowClick={(row) => navigate(`/app/sales/${row._id || row.id}`)}
+        onRowClick={(row) => navigate(`/app/sales/${row.id}`)}
         page={pagination.page}
         totalPages={pagination.totalPages}
         totalItems={pagination.totalItems}
@@ -206,14 +203,12 @@ const SalesPage = () => {
             </table>
             <div className="border-t pt-3 space-y-1 text-sm">
               <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(viewSale.subtotal)}</span></div>
-              {viewSale.discount_amount > 0 && <div className="flex justify-between text-success-600"><span>Discount</span><span>-{formatCurrency(viewSale.discount_amount)}</span></div>}
+              {viewSale.discountAmount > 0 && <div className="flex justify-between text-success-600"><span>Discount</span><span>-{formatCurrency(viewSale.discountAmount)}</span></div>}
               <div className="flex justify-between font-bold text-base"><span>Total</span><span>{formatCurrency(viewSale.total || viewSale.total_amount)}</span></div>
             </div>
           </div>
         )}
       </Modal>
-
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} loading={deleting} title="Delete Sale" message="Are you sure you want to delete this sale?" confirmLabel="Delete" variant="danger" />
     </div>
   );
 };

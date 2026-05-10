@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiTrash2, FiTruck } from 'react-icons/fi';
-import { toast } from '../utils/swal';
+import { FiArrowLeft, FiTrash2 } from 'react-icons/fi';
+import { toast, confirmAction } from '../utils/swal';
 import { purchaseService } from '../services/purchaseService';
 import { formatCurrency, formatDateTime } from '../utils/helpers';
 import Button from '../components/common/Button.jsx';
 import Card from '../components/common/Card.jsx';
-import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
 import StatusBadge from '../components/common/StatusBadge.jsx';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import PageHeader from '../components/common/PageHeader.jsx';
@@ -16,7 +15,6 @@ const PurchaseDetailPage = () => {
   const navigate = useNavigate();
   const [purchase, setPurchase] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -52,15 +50,19 @@ const PurchaseDetailPage = () => {
   }, [id, navigate]);
 
   const handleDelete = async () => {
+    const confirmed = await confirmAction({
+      title: 'Delete Purchase',
+      text: 'Are you sure you want to delete this purchase? This action cannot be undone.',
+      confirmText: 'Yes, delete it!',
+    });
+    if (!confirmed) return;
     setDeleting(true);
     try {
       await purchaseService.delete(id);
       toast.success('Purchase deleted');
-      setShowDelete(false);
       navigate('/app/purchases');
     } catch {
       toast.error('Failed to delete purchase');
-    } finally {
       setDeleting(false);
     }
   };
@@ -71,12 +73,12 @@ const PurchaseDetailPage = () => {
   return (
     <div className="page-container max-w-4xl">
       <PageHeader
-        title={`Purchase #${purchase.reference || purchase._id?.slice(-6) || 'N/A'}`}
+        title={`Purchase #${purchase.reference || 'N/A'}`}
         breadcrumbs={[{ label: 'Transactions' }, { to: '/app/purchases', label: 'Purchases' }, { label: `#${purchase.reference || ''}` }]}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="secondary" icon={FiArrowLeft} onClick={() => navigate('/app/purchases')}>Back</Button>
-            <Button variant="danger" icon={FiTrash2} onClick={() => setShowDelete(true)}>Delete</Button>
+            <Button variant="danger" icon={FiTrash2} onClick={handleDelete} loading={deleting}>Delete</Button>
           </div>
         }
       />
@@ -154,16 +156,6 @@ const PurchaseDetailPage = () => {
           </Card>
         )}
       </div>
-      <ConfirmDialog
-        isOpen={showDelete}
-        onClose={() => setShowDelete(false)}
-        onConfirm={handleDelete}
-        loading={deleting}
-        title="Delete Purchase"
-        message="Are you sure you want to delete this purchase? This action cannot be undone."
-        confirmLabel="Delete"
-        variant="danger"
-      />
     </div>
   );
 };

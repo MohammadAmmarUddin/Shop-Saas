@@ -6,11 +6,28 @@ export const toast = {
   info: (msg) => Swal.fire({ icon: 'info', title: msg, toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, timerProgressBar: true }),
 };
 
-export const confirmDelete = async (title = 'Delete item', message = 'This action cannot be undone.') => {
+export const confirmAction = async ({ title = 'Confirm', text = 'Are you sure?', confirmText = 'Yes, proceed', cancelText = 'Cancel', icon = 'warning', confirmButtonColor = '#ef4444' } = {}) => {
   const result = await Swal.fire({
-    title, text: message, icon: 'warning', showCancelButton: true,
-    confirmButtonColor: '#ef4444', cancelButtonColor: '#6b7280',
-    confirmButtonText: 'Yes, delete it!', cancelButtonText: 'Cancel',
+    title, text, icon,
+    showCancelButton: true,
+    confirmButtonColor,
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: confirmText,
+    cancelButtonText: cancelText,
+    reverseButtons: true,
   });
   return result.isConfirmed;
+};
+
+export const showLoading = (title = 'Please wait...') => {
+  Swal.fire({
+    title,
+    allowOutsideClick: false,
+    showConfirmButton: false,
+    didOpen: () => Swal.showLoading(),
+  });
+};
+
+export const closeAlert = () => {
+  if (Swal.isVisible()) Swal.close();
 };

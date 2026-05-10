@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { FiPlus, FiEdit2, FiTrash2, FiCheck, FiX } from 'react-icons/fi';
-import { toast } from '../utils/swal';
+import { FiPlus, FiEdit2, FiTrash2, FiCheck } from 'react-icons/fi';
+import { toast, confirmAction } from '../utils/swal';
 import { PLANS } from '../utils/constants';
 import { formatCurrency } from '../utils/helpers';
 import PageHeader from '../components/common/PageHeader.jsx';
@@ -8,13 +8,11 @@ import Button from '../components/common/Button.jsx';
 import Card from '../components/common/Card.jsx';
 import Modal from '../components/common/Modal.jsx';
 import Input from '../components/common/Input.jsx';
-import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
 
 const PlansPage = () => {
   const [plans, setPlans] = useState(PLANS);
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
-  const [deleteId, setDeleteId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', price: '', features: '', description: '' });
   const [formErrors, setFormErrors] = useState({});
@@ -49,11 +47,15 @@ const PlansPage = () => {
     setSaving(false);
   };
 
-  const handleDelete = () => {
-    if (!deleteId) return;
-    setPlans((prev) => prev.filter((p) => p.id !== deleteId));
+  const handleDelete = async (id) => {
+    const confirmed = await confirmAction({
+      title: 'Delete Plan',
+      text: 'Are you sure you want to delete this plan?',
+      confirmText: 'Yes, delete it!',
+    });
+    if (!confirmed) return;
+    setPlans((prev) => prev.filter((p) => p.id !== id));
     toast.success('Plan deleted');
-    setDeleteId(null);
   };
 
   return (
@@ -67,7 +69,7 @@ const PlansPage = () => {
               <h3 className="text-lg font-bold text-secondary-900 dark:text-white capitalize">{plan.name}</h3>
               <div className="flex gap-1">
                 <button onClick={() => openEdit(plan)} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-400 hover:text-primary-600"><FiEdit2 size={14} /></button>
-                <button onClick={() => setDeleteId(plan.id)} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-400 hover:text-danger-600"><FiTrash2 size={14} /></button>
+                <button onClick={() => handleDelete(plan.id)} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-400 hover:text-danger-600"><FiTrash2 size={14} /></button>
               </div>
             </div>
             <div className="mb-4">
@@ -104,8 +106,6 @@ const PlansPage = () => {
           <Button variant="primary" onClick={handleSave} loading={saving}>{editItem ? 'Update' : 'Create'}</Button>
         </div>
       </Modal>
-
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} title="Delete Plan" message="Are you sure you want to delete this plan?" confirmLabel="Delete" variant="danger" />
     </div>
   );
 };

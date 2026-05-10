@@ -1,27 +1,26 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FiPlus, FiEdit2, FiTrash2, FiUser, FiPhone, FiMail } from 'react-icons/fi';
-import { toast } from '../utils/swal';
+import { toast, confirmAction } from '../utils/swal';
 import { customerService } from '../services/customerService';
-import { formatCurrency, formatDate } from '../utils/helpers';
+import { formatCurrency } from '../utils/helpers';
 import DataTable from '../components/common/DataTable.jsx';
 import PageHeader from '../components/common/PageHeader.jsx';
 import Button from '../components/common/Button.jsx';
 import Modal from '../components/common/Modal.jsx';
 import Input from '../components/common/Input.jsx';
-import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
 import usePagination from '../hooks/usePagination';
+
+const initialForm = { name: '', phone: '', email: '', address: '', notes: '' };
 
 const CustomersPage = () => {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
-  const [deleteId, setDeleteId] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [search, setSearch] = useState('');
   const [balanceFilter, setBalanceFilter] = useState('all');
-  const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', notes: '' });
+  const [form, setForm] = useState({ ...initialForm });
   const [formErrors, setFormErrors] = useState({});
   const pagination = usePagination();
 
@@ -47,12 +46,33 @@ const CustomersPage = () => {
 
   useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
 
-  const openCreate = () => { setEditItem(null); setForm({ name: '', phone: '', email: '', address: '', notes: '' }); setFormErrors({}); setShowModal(true); };
-  const openEdit = (c) => { setEditItem(c); setForm({ name: c.name || '', phone: c.phone || '', email: c.email || '', address: c.address || '', notes: c.notes || '' }); setFormErrors({}); setShowModal(true); };
+  const resetForm = () => {
+    setEditItem(null);
+    setForm({ ...initialForm });
+    setFormErrors({});
+  };
+
+  const openCreate = () => {
+    resetForm();
+    setShowModal(true);
+  };
+
+  const openEdit = (c) => {
+    setEditItem(c);
+    setForm({
+      name: c.name ?? '',
+      phone: c.phone ?? '',
+      email: c.email ?? '',
+      address: c.address ?? '',
+      notes: c.notes ?? '',
+    });
+    setFormErrors({});
+    setShowModal(true);
+  };
 
   const validate = () => {
     const errs = {};
-    if (!form.name.trim()) errs.name = 'Name is required';
+    if (!form.name?.trim()) errs.name = 'Name is required';
     if (form.email && !/\S+@\S+\.\S+/.test(form.email)) errs.email = 'Invalid email';
     setFormErrors(errs);
     return Object.keys(errs).length === 0;
@@ -70,12 +90,15 @@ const CustomersPage = () => {
     finally { setSaving(false); }
   };
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    setDeleting(true);
-    try { await customerService.delete(deleteId); toast.success('Customer deleted'); setDeleteId(null); fetchCustomers(); }
+  const handleDelete = async (id) => {
+    const confirmed = await confirmAction({
+      title: 'Delete Customer',
+      text: 'Are you sure you want to delete this customer?',
+      confirmText: 'Yes, delete it!',
+    });
+    if (!confirmed) return;
+    try { await customerService.delete(id); toast.success('Customer deleted'); fetchCustomers(); }
     catch { toast.error('Failed to delete customer'); }
-    finally { setDeleting(false); }
   };
 
   const columns = [
@@ -97,7 +120,7 @@ const CustomersPage = () => {
       render: (_, row) => (
         <div className="flex items-center gap-2">
           <button onClick={(e) => { e.stopPropagation(); openEdit(row); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-primary-600"><FiEdit2 size={16} /></button>
-          <button onClick={(e) => { e.stopPropagation(); setDeleteId(row._id || row.id); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-danger-600"><FiTrash2 size={16} /></button>
+          <button onClick={(e) => { e.stopPropagation(); handleDelete(row._id || row.id); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-danger-600"><FiTrash2 size={16} /></button>
         </div>
       ),
     },
@@ -130,7 +153,6 @@ const CustomersPage = () => {
           <Button variant="primary" onClick={handleSave} loading={saving}>{editItem ? 'Update' : 'Create'}</Button>
         </div>
       </Modal>
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} loading={deleting} title="Delete Customer" message="Are you sure you want to delete this customer?" confirmLabel="Delete" variant="danger" />
     </div>
   );
 };

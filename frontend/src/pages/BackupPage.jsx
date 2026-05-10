@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FiDownload, FiTrash2, FiRefreshCw, FiServer, FiClock, FiPlus } from 'react-icons/fi';
-import { toast } from '../utils/swal';
+import { toast, confirmAction } from '../utils/swal';
 import { backupService } from '../services/backupService';
-import { formatDateTime, formatDate } from '../utils/helpers';
+import { formatDateTime } from '../utils/helpers';
 import PageHeader from '../components/common/PageHeader.jsx';
 import Card from '../components/common/Card.jsx';
 import Button from '../components/common/Button.jsx';
 import DataTable from '../components/common/DataTable.jsx';
-import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import StatusBadge from '../components/common/StatusBadge.jsx';
 import usePagination from '../hooks/usePagination';
@@ -16,9 +15,7 @@ const BackupPage = () => {
   const [backups, setBackups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const [restoreId, setRestoreId] = useState(null);
   const [restoring, setRestoring] = useState(false);
   const pagination = usePagination();
 
@@ -67,21 +64,31 @@ const BackupPage = () => {
     } catch { toast.error('Failed to download backup'); }
   };
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
+  const handleDelete = async (id) => {
+    const confirmed = await confirmAction({
+      title: 'Delete Backup',
+      text: 'Are you sure you want to delete this backup?',
+      confirmText: 'Yes, delete it!',
+    });
+    if (!confirmed) return;
     setDeleting(true);
-    try { await backupService.delete(deleteId); toast.success('Backup deleted'); setDeleteId(null); fetchBackups(); }
+    try { await backupService.delete(id); toast.success('Backup deleted'); fetchBackups(); }
     catch { toast.error('Failed to delete backup'); }
     finally { setDeleting(false); }
   };
 
-  const handleRestore = async () => {
-    if (!restoreId) return;
+  const handleRestore = async (id) => {
+    const confirmed = await confirmAction({
+      title: 'Restore Backup',
+      text: 'Restoring will replace your current data. Are you sure you want to continue?',
+      confirmText: 'Yes, restore!',
+      confirmButtonColor: '#f59e0b',
+    });
+    if (!confirmed) return;
     setRestoring(true);
     try {
-      await backupService.restore(restoreId);
+      await backupService.restore(id);
       toast.success('Backup restored successfully');
-      setRestoreId(null);
     } catch { toast.error('Failed to restore backup'); }
     finally { setRestoring(false); }
   };
@@ -103,8 +110,8 @@ const BackupPage = () => {
       render: (_, row) => (
         <div className="flex items-center gap-2">
           <button onClick={(e) => { e.stopPropagation(); downloadBackup(row._id || row.id, row.filename); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-primary-600"><FiDownload size={16} /></button>
-          <button onClick={(e) => { e.stopPropagation(); setRestoreId(row._id || row.id); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-warning-600"><FiRefreshCw size={16} /></button>
-          <button onClick={(e) => { e.stopPropagation(); setDeleteId(row._id || row.id); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-danger-600"><FiTrash2 size={16} /></button>
+          <button onClick={(e) => { e.stopPropagation(); handleRestore(row._id || row.id); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-warning-600"><FiRefreshCw size={16} /></button>
+          <button onClick={(e) => { e.stopPropagation(); handleDelete(row._id || row.id); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-danger-600"><FiTrash2 size={16} /></button>
         </div>
       ),
     },
@@ -121,9 +128,6 @@ const BackupPage = () => {
       </div>
 
       <DataTable columns={columns} data={backups} loading={loading} page={pagination.page} totalPages={pagination.totalPages} totalItems={pagination.totalItems} limit={pagination.limit} onPageChange={pagination.goToPage} onLimitChange={pagination.changeLimit} emptyTitle="No backups yet" emptyMessage="Create your first backup to protect your data." emptyAction emptyActionLabel="Create Backup" onEmptyAction={createBackup} />
-
-      <ConfirmDialog isOpen={!!restoreId} onClose={() => setRestoreId(null)} onConfirm={handleRestore} loading={restoring} title="Restore Backup" message="Restoring will replace your current data. Are you sure you want to continue?" confirmLabel="Restore" variant="warning" />
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} loading={deleting} title="Delete Backup" message="Are you sure you want to delete this backup?" confirmLabel="Delete" variant="danger" />
     </div>
   );
 };

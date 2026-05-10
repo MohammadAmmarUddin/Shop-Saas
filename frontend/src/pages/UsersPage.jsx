@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FiPlus, FiEdit2, FiTrash2, FiUser, FiShield } from 'react-icons/fi';
-import { toast } from '../utils/swal';
+import { FiPlus, FiEdit2, FiTrash2, FiUser } from 'react-icons/fi';
+import { toast, confirmAction } from '../utils/swal';
 import { userService } from '../services/userService';
 import { formatDateTime } from '../utils/helpers';
 import DataTable from '../components/common/DataTable.jsx';
@@ -8,7 +8,6 @@ import PageHeader from '../components/common/PageHeader.jsx';
 import Button from '../components/common/Button.jsx';
 import Modal from '../components/common/Modal.jsx';
 import Input from '../components/common/Input.jsx';
-import ConfirmDialog from '../components/common/ConfirmDialog.jsx';
 import StatusBadge from '../components/common/StatusBadge.jsx';
 import usePagination from '../hooks/usePagination';
 import { ROLES } from '../utils/constants';
@@ -19,16 +18,16 @@ const roleOptions = [
   { value: ROLES.EMPLOYEE, label: 'Employee' },
 ];
 
+const initialForm = { name: '', email: '', password: '', role: ROLES.EMPLOYEE, status: 'active' };
+
 const UsersPage = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
-  const [deleteId, setDeleteId] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [search, setSearch] = useState('');
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: ROLES.EMPLOYEE, status: 'active' });
+  const [form, setForm] = useState({ ...initialForm });
   const [formErrors, setFormErrors] = useState({});
   const pagination = usePagination();
 
@@ -54,13 +53,34 @@ const UsersPage = () => {
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
-  const openCreate = () => { setEditItem(null); setForm({ name: '', email: '', password: '', role: ROLES.EMPLOYEE, status: 'active' }); setFormErrors({}); setShowModal(true); };
-  const openEdit = (u) => { setEditItem(u); setForm({ name: u.name || '', email: u.email || '', password: '', role: u.role || ROLES.EMPLOYEE, status: u.status || 'active' }); setFormErrors({}); setShowModal(true); };
+  const resetForm = () => {
+    setEditItem(null);
+    setForm({ ...initialForm });
+    setFormErrors({});
+  };
+
+  const openCreate = () => {
+    resetForm();
+    setShowModal(true);
+  };
+
+  const openEdit = (u) => {
+    setEditItem(u);
+    setForm({
+      name: u.name ?? '',
+      email: u.email ?? '',
+      password: '',
+      role: u.role || ROLES.EMPLOYEE,
+      status: u.status || 'active',
+    });
+    setFormErrors({});
+    setShowModal(true);
+  };
 
   const validate = () => {
     const errs = {};
-    if (!form.name.trim()) errs.name = 'Name is required';
-    if (!form.email.trim()) errs.email = 'Email is required';
+    if (!form.name?.trim()) errs.name = 'Name is required';
+    if (!form.email?.trim()) errs.email = 'Email is required';
     else if (!/\S+@\S+\.\S+/.test(form.email)) errs.email = 'Invalid email';
     if (!editItem && !form.password) errs.password = 'Password is required';
     else if (!editItem && form.password.length < 6) errs.password = 'At least 6 characters';
@@ -69,31 +89,54 @@ const UsersPage = () => {
   };
 
   const handleSave = async () => {
+    if (saving) return;
     if (!validate()) return;
     setSaving(true);
     try {
-      const data = { ...form };
-      if (editItem && !data.password) delete data.password;
-      if (editItem) { await userService.update(editItem._id || editItem.id, data); toast.success('User updated'); }
-      else { await userService.create(data); toast.success('User created'); }
-      setShowModal(false); fetchUsers();
+      if (editItem) {
+        const data = {};
+        if (form.name) data.name = form.name;
+        if (form.password) data.password = form.password;
+        if (form.role) data.role = form.role;
+        if (form.status) data.status = form.status;
+        await userService.update(editItem.id, data);
+        toast.success('User updated');
+      } else {
+        const data = { name: form.name, email: form.email, password: form.password, role: form.role };
+        await userService.create(data);
+        toast.success('User created');
+      }
+      setShowModal(false);
+      resetForm();
+      await fetchUsers();
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to save user'); }
     finally { setSaving(false); }
   };
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    setDeleting(true);
-    try { await userService.delete(deleteId); toast.success('User deleted'); setDeleteId(null); fetchUsers(); }
+  const handleDelete = async (id) => {
+    const confirmed = await confirmAction({
+      title: 'Delete User',
+      text: 'Are you sure you want to delete this user?',
+      confirmText: 'Yes, delete it!',
+    });
+    if (!confirmed) return;
+    try { await userService.delete(id); toast.success('User deleted'); await fetchUsers(); }
     catch { toast.error('Failed to delete user'); }
-    finally { setDeleting(false); }
   };
 
   const toggleStatus = async (userId, currentStatus) => {
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    const confirmed = await confirmAction({
+      title: `${newStatus === 'active' ? 'Activate' : 'Deactivate'} User`,
+      text: `Are you sure you want to ${newStatus === 'active' ? 'activate' : 'deactivate'} this user?`,
+      confirmText: `Yes, ${newStatus === 'active' ? 'activate' : 'deactivate'}`,
+      confirmButtonColor: newStatus === 'active' ? '#22c55e' : '#ef4444',
+    });
+    if (!confirmed) return;
     try {
-      await userService.updateStatus(userId, currentStatus === 'active' ? 'inactive' : 'active');
-      toast.success('User status updated');
-      fetchUsers();
+      await userService.updateStatus(userId, newStatus);
+      toast.success(`User ${newStatus === 'active' ? 'activated' : 'deactivated'}`);
+      await fetchUsers();
     } catch { toast.error('Failed to update status'); }
   };
 
@@ -114,9 +157,9 @@ const UsersPage = () => {
       key: 'actions', label: 'Actions',
       render: (_, row) => (
         <div className="flex items-center gap-2">
-          <button onClick={(e) => { e.stopPropagation(); toggleStatus(row._id || row.id, row.status); }} className="px-2 py-1 text-xs rounded-lg border border-secondary-300 dark:border-secondary-600 hover:bg-secondary-100 dark:hover:bg-secondary-700 transition-colors">{row.status === 'active' ? 'Deactivate' : 'Activate'}</button>
+          <button onClick={(e) => { e.stopPropagation(); toggleStatus(row.id, row.status); }} className="px-2 py-1 text-xs rounded-lg border border-secondary-300 dark:border-secondary-600 hover:bg-secondary-100 dark:hover:bg-secondary-700 transition-colors">{row.status === 'active' ? 'Deactivate' : 'Activate'}</button>
           <button onClick={(e) => { e.stopPropagation(); openEdit(row); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-primary-600"><FiEdit2 size={16} /></button>
-          <button onClick={(e) => { e.stopPropagation(); setDeleteId(row._id || row.id); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-danger-600"><FiTrash2 size={16} /></button>
+          <button onClick={(e) => { e.stopPropagation(); handleDelete(row.id); }} className="p-1.5 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 hover:text-danger-600"><FiTrash2 size={16} /></button>
         </div>
       ),
     },
@@ -129,7 +172,7 @@ const UsersPage = () => {
         <input type="text" placeholder="Search by name or email..." value={search} onChange={(e) => { setSearch(e.target.value); pagination.setPage(1); }} className="flex-1 min-w-[200px] px-4 py-2 border border-secondary-300 rounded-lg bg-white dark:bg-secondary-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
       </div>
       <DataTable columns={columns} data={users} loading={loading} exportable exportFilename="users" page={pagination.page} totalPages={pagination.totalPages} totalItems={pagination.totalItems} limit={pagination.limit} onPageChange={pagination.goToPage} onLimitChange={pagination.changeLimit} emptyTitle="No users found" emptyMessage="Invite your team members to collaborate." emptyAction emptyActionLabel="Add User" onEmptyAction={openCreate} />
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editItem ? 'Edit User' : 'Add User'} size="md">
+      <Modal isOpen={showModal} onClose={() => { setShowModal(false); resetForm(); }} title={editItem ? 'Edit User' : 'Add User'} size="md">
         <div className="space-y-4">
           <Input label="Full Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required error={formErrors.name} placeholder="John Doe" />
           <Input label="Email *" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required error={formErrors.email} placeholder="user@example.com" />
@@ -141,11 +184,10 @@ const UsersPage = () => {
           </div>
         </div>
         <div className="flex justify-end gap-3 mt-6">
-          <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
+          <Button variant="secondary" onClick={() => { setShowModal(false); resetForm(); }}>Cancel</Button>
           <Button variant="primary" onClick={handleSave} loading={saving}>{editItem ? 'Update' : 'Create'}</Button>
         </div>
       </Modal>
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} loading={deleting} title="Delete User" message="Are you sure you want to delete this user?" confirmLabel="Delete" variant="danger" />
     </div>
   );
 };

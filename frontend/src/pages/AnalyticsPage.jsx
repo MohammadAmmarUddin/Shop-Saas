@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { FiUsers, FiCreditCard, FiTrendingUp, FiUserPlus, FiDollarSign } from 'react-icons/fi';
+import { FiUsers, FiCreditCard, FiUserPlus, FiDollarSign } from 'react-icons/fi';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
-import { ArcElement } from 'chart.js';
+import { Chart as ChartJS, ArcElement, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler } from 'chart.js';
+
+ChartJS.register(ArcElement, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler);
 import { tenantService } from '../services/tenantService';
 import { formatCurrency, formatNumber, formatDate } from '../utils/helpers';
 import { CHART_COLORS, CHART_COLOR_ARRAYS } from '../utils/constants';
