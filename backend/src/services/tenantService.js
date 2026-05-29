@@ -34,11 +34,21 @@ const createTenant = async ({ name, owner_name, email, password, phone, address,
       },
     });
 
-    const freePlan = await tx.subscriptionPlan.findFirst({ where: { slug: 'free' } });
+    let freePlan = await tx.subscriptionPlan.findFirst({ where: { slug: 'free' } });
+    if (!freePlan) {
+      freePlan = await tx.subscriptionPlan.create({
+        data: {
+          name: 'Free', slug: 'free', description: 'Free plan for trial users',
+          price_monthly: 0, price_yearly: 0,
+          max_products: 100, max_staff: 2,
+          is_active: true, sort_order: 0,
+        },
+      });
+    }
     await tx.subscription.create({
       data: {
         store_id: store.id,
-        plan_id: freePlan ? freePlan.id : 1,
+        plan_id: freePlan.id,
         status: 'trial',
         start_date: new Date(),
         trial_ends_at: store.trial_ends_at,
@@ -55,7 +65,7 @@ const getTenantInfo = async (storeId) => {
   const store = await prisma.store.findUnique({
     where: { id: storeId },
     include: {
-      subscription: { include: { plan: true } },
+      subscriptions: { include: { plan: true } },
     },
   });
   return store;

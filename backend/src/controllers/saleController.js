@@ -59,13 +59,36 @@ const getSale = async (req, res, next) => {
 const createSale = async (req, res, next) => {
   try {
     const {
-      customer_id, items, discount_type, discount_value, discount_amount,
+      customer_id, customer_name, customer_phone, items, discount_type, discount_value, discount_amount,
       shipping_amount, shipping_cost, payment_method, paid_amount,
       status, notes, prescription_id, is_pharmacy,
     } = req.body;
 
     if (!items || items.length === 0) {
       return response.error(res, 'At least one item is required', 400);
+    }
+
+    let resolvedCustomerId = customer_id ? BigInt(customer_id) : null;
+    if (!resolvedCustomerId && customer_name && customer_name.trim()) {
+      const existingCustomer = await prisma.customer.findFirst({
+        where: {
+          store_id: req.tenantId,
+          name: customer_name.trim(),
+          phone: customer_phone?.trim() || null,
+        },
+      });
+      if (existingCustomer) {
+        resolvedCustomerId = existingCustomer.id;
+      } else {
+        const newCustomer = await prisma.customer.create({
+          data: {
+            store_id: req.tenantId,
+            name: customer_name.trim(),
+            phone: customer_phone?.trim() || null,
+          },
+        });
+        resolvedCustomerId = newCustomer.id;
+      }
     }
 
     const productIds = items.map(i => BigInt(i.product_id));
@@ -134,7 +157,7 @@ const createSale = async (req, res, next) => {
         data: {
           store_id: req.tenantId,
           invoice_number: invoiceNumber,
-          customer_id: customer_id ? BigInt(customer_id) : null,
+          customer_id: resolvedCustomerId,
           user_id: req.user.id,
           subtotal: parseFloat(subtotal.toFixed(2)),
           tax_amount: parseFloat(totalTax.toFixed(2)),
@@ -178,9 +201,9 @@ const createSale = async (req, res, next) => {
         });
       }
 
-      if (customer_id) {
+      if (resolvedCustomerId) {
         await tx.customer.update({
-          where: { id: BigInt(customer_id) },
+          where: { id: resolvedCustomerId },
           data: {
             total_purchases: { increment: totalAmount },
             total_paid: { increment: paid },
@@ -282,6 +305,17 @@ const deleteSale = async (req, res, next) => {
             data: { stock_quantity: newStock },
           });
         }
+      }
+
+      if (sale.customer_id) {
+        await tx.customer.update({
+          where: { id: sale.customer_id },
+          data: {
+            total_purchases: { decrement: sale.total_amount || 0 },
+            total_paid: { decrement: sale.paid_amount || 0 },
+            balance: { decrement: sale.due_amount || 0 },
+          },
+        });
       }
 
       await tx.sale.update({

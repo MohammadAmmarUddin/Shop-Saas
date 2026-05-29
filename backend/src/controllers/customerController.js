@@ -76,6 +76,10 @@ const createCustomer = async (req, res, next) => {
       notes,
     } = req.body;
 
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return response.error(res, 'Customer name is required', 400);
+    }
+
     const customer = await prisma.customer.create({
       data: {
         store_id: req.tenantId,

@@ -1,13 +1,19 @@
 const success = (res, data = null, message = 'Success', statusCode = 200) => {
-  return res.status(statusCode).json({ success: true, message, data });
+  const response = { success: true, message, data };
+  if (res.locals?.breadcrumbs?.length) response.breadcrumbs = res.locals.breadcrumbs;
+  return res.status(statusCode).json(response);
 };
 
 const created = (res, data = null, message = 'Created successfully') => {
-  return res.status(201).json({ success: true, message, data });
+  const response = { success: true, message, data };
+  if (res.locals?.breadcrumbs?.length) response.breadcrumbs = res.locals.breadcrumbs;
+  return res.status(201).json(response);
 };
 
 const paginated = (res, data, pagination, message = 'Success') => {
-  return res.status(200).json({ success: true, message, data, pagination });
+  const response = { success: true, message, data, pagination };
+  if (res.locals?.breadcrumbs?.length) response.breadcrumbs = res.locals.breadcrumbs;
+  return res.status(200).json(response);
 };
 
 const error = (res, message = 'Internal server error', statusCode = 500, errors = null) => {

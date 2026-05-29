@@ -210,6 +210,7 @@ const changePassword = async (req, res, next) => {
   try {
     const { current_password, new_password } = req.body;
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user) return response.notFound(res, 'User not found');
 
     const isMatch = await bcrypt.compare(current_password, user.password);
     if (!isMatch) {

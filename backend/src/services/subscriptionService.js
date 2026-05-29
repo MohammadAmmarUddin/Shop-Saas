@@ -72,7 +72,7 @@ const cancelSubscription = async (storeId) => {
   const subscription = await prisma.subscription.findFirst({ where: { store_id: storeId } });
   if (!subscription) throw new Error('No active subscription found');
 
-  await prisma.subscription.update({
+  const updated = await prisma.subscription.update({
     where: { id: subscription.id },
     data: {
       status: 'cancelled',
@@ -81,7 +81,7 @@ const cancelSubscription = async (storeId) => {
     },
   });
 
-  return subscription;
+  return updated;
 };
 
 const processRenewals = async () => {
@@ -158,6 +158,87 @@ const checkExpiredTrials = async () => {
   return expiredTrials.length;
 };
 
+const getPaymentMethods = async () => {
+  const gateways = await prisma.paymentGateway.findMany({
+    where: { is_active: true },
+    orderBy: { sort_order: 'asc' },
+  });
+  return gateways.map(g => ({
+    id: g.slug,
+    name: g.name,
+    type: g.type,
+    instructions: g.instructions,
+    ...(g.config || {}),
+  }));
+};
+
+const submitManualPayment = async (storeId, { plan_id, payment_method, transaction_id, sender_identifier, notes, billing_period }) => {
+  const subscription = await prisma.subscription.findFirst({ where: { store_id: storeId } });
+  if (!subscription) throw new Error('No subscription found');
+
+  const plan = await prisma.subscriptionPlan.findUnique({ where: { id: BigInt(plan_id) } });
+  if (!plan) throw new Error('Plan not found');
+
+  const amount = billing_period === 'yearly' ? plan.price_yearly : plan.price_monthly;
+
+  if (parseFloat(amount) <= 0) {
+    throw new Error('This plan is free. No payment required.');
+  }
+
+  const validMethods = await getPaymentMethods();
+  if (!validMethods.some(m => m.id === payment_method)) {
+    const supported = validMethods.map(m => m.id).join(', ');
+    throw new Error(`Invalid payment method. Supported: ${supported}`);
+  }
+
+  if (!transaction_id || !transaction_id.trim()) {
+    throw new Error('Transaction ID / reference number is required');
+  }
+
+  const payment = await prisma.manualPayment.create({
+    data: {
+      store_id: storeId,
+      subscription_id: subscription.id,
+      amount,
+      payment_method,
+      transaction_id: transaction_id.trim(),
+      sender_identifier: sender_identifier?.trim() || null,
+      notes: notes?.trim() || null,
+      status: 'pending',
+    },
+  });
+
+  await prisma.subscription.update({
+    where: { id: subscription.id },
+    data: {
+      payment_method,
+      payment_details: {
+        last_transaction: transaction_id.trim(),
+        sender_identifier: sender_identifier?.trim() || null,
+        submitted_at: new Date().toISOString(),
+      },
+    },
+  });
+
+  return payment;
+};
+
+const getPaymentHistory = async (storeId) => {
+  const payments = await prisma.manualPayment.findMany({
+    where: { store_id: storeId },
+    orderBy: { created_at: 'desc' },
+    include: {
+      subscription: {
+        include: { plan: true },
+      },
+      approvedBy: {
+        select: { id: true, name: true, email: true },
+      },
+    },
+  });
+  return payments;
+};
+
 const checkSubscriptionStatus = async (storeId) => {
   const subscription = await getCurrentSubscription(storeId);
   if (!subscription) return { isActive: false, status: 'none' };
@@ -184,4 +265,7 @@ module.exports = {
   processRenewals,
   checkExpiredTrials,
   checkSubscriptionStatus,
+  getPaymentMethods,
+  submitManualPayment,
+  getPaymentHistory,
 };

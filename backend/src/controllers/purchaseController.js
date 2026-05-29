@@ -14,7 +14,7 @@ const listPurchases = async (req, res, next) => {
     if (start_date) where.created_at = { gte: new Date(start_date) };
     if (end_date) where.created_at = { ...where.created_at, lte: new Date(end_date + 'T23:59:59.999Z') };
     if (search) {
-      where.reference_number = { contains: search };
+      where.purchase_number = { contains: search };
     }
 
     const [count, rows] = await prisma.$transaction([
@@ -56,7 +56,7 @@ const getPurchase = async (req, res, next) => {
 const createPurchase = async (req, res, next) => {
   try {
     const {
-      supplier_id, items, order_date, expected_date,
+      supplier_id, items,
       discount_amount, shipping_amount, shipping_cost, status, notes,
     } = req.body;
 
@@ -82,7 +82,7 @@ const createPurchase = async (req, res, next) => {
         return response.error(res, `Product ID ${item.product_id} not found`, 404);
       }
 
-      const itemTotal = parseFloat(item.quantity) * parseFloat(item.unit_price);
+      const itemTotal = parseFloat(item.quantity) * parseFloat(item.unit_cost);
       const itemTax = itemTotal * (parseFloat(item.tax_percentage || 0) / 100);
       const itemDiscount = parseFloat(item.discount_amount || 0);
 
@@ -92,7 +92,7 @@ const createPurchase = async (req, res, next) => {
       purchaseItems.push({
         product_id: product.id,
         quantity: parseFloat(item.quantity),
-        unit_price: parseFloat(item.unit_price),
+        unit_cost: parseFloat(item.unit_cost),
         discount_amount: itemDiscount,
         tax_percentage: parseFloat(item.tax_percentage || 0),
         tax_amount: itemTax,
@@ -113,8 +113,6 @@ const createPurchase = async (req, res, next) => {
           supplier_id: supplier_id ? BigInt(supplier_id) : null,
           user_id: req.user.id,
           purchase_number: refNumber,
-          order_date: order_date ? new Date(order_date) : new Date(),
-          expected_date: expected_date ? new Date(expected_date) : null,
           subtotal: parseFloat(subtotal.toFixed(2)),
           tax_amount: parseFloat(totalTax.toFixed(2)),
           discount_amount: discAmount,
@@ -129,7 +127,7 @@ const createPurchase = async (req, res, next) => {
             create: purchaseItems.map(pi => ({
               product_id: pi.product_id,
               quantity: pi.quantity,
-              unit_price: pi.unit_price,
+              unit_cost: pi.unit_cost,
               discount_amount: pi.discount_amount,
               tax_percentage: pi.tax_percentage,
               tax_amount: pi.tax_amount,
@@ -161,7 +159,7 @@ const updatePurchase = async (req, res, next) => {
     });
     if (!purchase) return response.notFound(res, 'Purchase not found');
 
-    const allowedFields = ['supplier_id', 'order_date', 'expected_date', 'status', 'notes', 'payment_status', 'paid_amount'];
+    const allowedFields = ['supplier_id', 'status', 'notes', 'payment_status', 'paid_amount'];
     const data = {};
     allowedFields.forEach(field => {
       if (req.body[field] !== undefined) data[field] = req.body[field];
@@ -213,16 +211,7 @@ const receivePurchase = async (req, res, next) => {
           throw Object.assign(new Error(`Purchase item ${ri.id} not found`), { statusCode: 404 });
         }
 
-        const receivedQty = parseFloat(ri.received_quantity || 0);
-        await tx.purchaseItem.update({
-          where: { id: purchaseItem.id },
-          data: {
-            received_quantity: receivedQty,
-            expiry_date: ri.expiry_date ? new Date(ri.expiry_date) : purchaseItem.expiry_date,
-            batch_number: ri.batch_number || purchaseItem.batch_number,
-          },
-        });
-
+        const receivedQty = parseFloat(ri.received_quantity || ri.quantity || purchaseItem.quantity);
         const product = await tx.product.findUnique({ where: { id: purchaseItem.product_id } });
         if (product) {
           const newStock = parseFloat(product.stock_quantity) + receivedQty;
@@ -230,7 +219,7 @@ const receivePurchase = async (req, res, next) => {
             where: { id: product.id },
             data: {
               stock_quantity: newStock,
-              purchase_price: parseFloat(purchaseItem.unit_price),
+              purchase_price: parseFloat(purchaseItem.unit_cost),
               ...(ri.expiry_date ? { expiry_date: new Date(ri.expiry_date) } : {}),
               ...(ri.batch_number ? { batch_number: ri.batch_number } : {}),
             },
@@ -268,7 +257,7 @@ const deletePurchase = async (req, res, next) => {
         for (const item of items) {
           const product = await tx.product.findUnique({ where: { id: item.product_id } });
           if (product) {
-            const newStock = parseFloat(product.stock_quantity) - parseFloat(item.received_quantity);
+            const newStock = parseFloat(product.stock_quantity) - parseFloat(item.quantity);
             await tx.product.update({
               where: { id: product.id },
               data: { stock_quantity: Math.max(0, newStock) },

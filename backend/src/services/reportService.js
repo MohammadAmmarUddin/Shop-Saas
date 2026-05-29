@@ -1,8 +1,8 @@
 const prisma = require('../prisma');
 
 const getSalesReport = async (storeId, { startDate, endDate, groupBy = 'day', categoryId, customerId, paymentMethod }) => {
-  const conditions = [`store_id = ${storeId}`];
-  const params = [];
+  const conditions = [`store_id = ?`];
+  const params = [BigInt(storeId)];
 
   if (startDate) { conditions.push(`created_at >= ?`); params.push(new Date(startDate)); }
   if (endDate) { conditions.push(`created_at <= ?`); params.push(new Date(endDate + 'T23:59:59.999Z')); }
@@ -48,8 +48,8 @@ const getSalesReport = async (storeId, { startDate, endDate, groupBy = 'day', ca
 };
 
 const getPurchaseReport = async (storeId, { startDate, endDate, groupBy = 'day', supplierId, status }) => {
-  const conditions = [`store_id = ${storeId}`];
-  const params = [];
+  const conditions = [`store_id = ?`];
+  const params = [BigInt(storeId)];
 
   if (startDate) { conditions.push(`created_at >= ?`); params.push(new Date(startDate)); }
   if (endDate) { conditions.push(`created_at <= ?`); params.push(new Date(endDate + 'T23:59:59.999Z')); }
@@ -91,8 +91,8 @@ const getPurchaseReport = async (storeId, { startDate, endDate, groupBy = 'day',
 };
 
 const getProfitLossReport = async (storeId, { startDate, endDate, groupBy = 'month' }) => {
-  const conditions = [`store_id = ${storeId}`];
-  const params = [];
+  const conditions = [`store_id = ?`];
+  const params = [BigInt(storeId)];
 
   if (startDate) { conditions.push(`created_at >= ?`); params.push(new Date(startDate)); }
   if (endDate) { conditions.push(`created_at <= ?`); params.push(new Date(endDate + 'T23:59:59.999Z')); }
@@ -124,17 +124,17 @@ const getProfitLossReport = async (storeId, { startDate, endDate, groupBy = 'mon
 
   const costQuery = `
     SELECT DATE_FORMAT(p.created_at, '${dateFormat}') AS period,
-           SUM(pi.quantity * pi.unit_price) AS total_cost
+           SUM(pi.quantity * pi.unit_cost) AS total_cost
     FROM purchase_items pi
     JOIN purchases p ON p.id = pi.purchase_id
-    WHERE p.store_id = ${storeId} AND p.status = 'received'
+    WHERE p.store_id = ? AND p.status = 'received'
     GROUP BY period
   `;
 
   const [revenueData, expenseData, costData] = await Promise.all([
     prisma.$queryRawUnsafe(revenueQuery, ...params),
     prisma.$queryRawUnsafe(expenseQuery, ...params),
-    prisma.$queryRawUnsafe(costQuery),
+    prisma.$queryRawUnsafe(costQuery, BigInt(storeId)),
   ]);
 
   const periods = new Set();
@@ -177,9 +177,9 @@ const getInventoryReport = async (storeId) => {
            CASE WHEN p.stock_quantity <= p.low_stock_threshold THEN 1 ELSE 0 END AS is_low_stock
     FROM products p
     LEFT JOIN categories c ON c.id = p.category_id
-    WHERE p.store_id = ${storeId}
+    WHERE p.store_id = ?
     ORDER BY p.name ASC
-  `);
+  `, BigInt(storeId));
 
   const stats = {
     total_products: products.length,
@@ -195,8 +195,8 @@ const getInventoryReport = async (storeId) => {
 };
 
 const getTopSellingProducts = async (storeId, { startDate, endDate, limit = 10 }) => {
-  const conditions = [`s.store_id = ${storeId}`, `s.status = 'completed'`];
-  const params = [];
+  const conditions = [`s.store_id = ?`, `s.status = 'completed'`];
+  const params = [BigInt(storeId)];
 
   if (startDate) { conditions.push(`s.created_at >= ?`); params.push(new Date(startDate)); }
   if (endDate) { conditions.push(`s.created_at <= ?`); params.push(new Date(endDate + 'T23:59:59.999Z')); }
@@ -222,8 +222,8 @@ const getTopSellingProducts = async (storeId, { startDate, endDate, limit = 10 }
 };
 
 const getCustomerReport = async (storeId, { startDate, endDate }) => {
-  const conditions = [`s.store_id = ${storeId}`, `s.status = 'completed'`, `s.customer_id IS NOT NULL`];
-  const params = [];
+  const conditions = [`s.store_id = ?`, `s.status = 'completed'`, `s.customer_id IS NOT NULL`];
+  const params = [BigInt(storeId)];
 
   if (startDate) { conditions.push(`s.created_at >= ?`); params.push(new Date(startDate)); }
   if (endDate) { conditions.push(`s.created_at <= ?`); params.push(new Date(endDate + 'T23:59:59.999Z')); }
@@ -249,11 +249,11 @@ const getCustomerReport = async (storeId, { startDate, endDate }) => {
 };
 
 const getExpenseReport = async (storeId, { startDate, endDate, groupBy = 'category' }) => {
-  const conditions = [`store_id = ${storeId}`];
-  const params = [];
+  const conditions = [`store_id = ?`];
+  const params = [BigInt(storeId)];
 
-  if (startDate) { conditions.push(`expense_date >= ?`); params.push(startDate); }
-  if (endDate) { conditions.push(`expense_date <= ?`); params.push(endDate); }
+  if (startDate) { conditions.push(`expense_date >= ?`); params.push(new Date(startDate)); }
+  if (endDate) { conditions.push(`expense_date <= ?`); params.push(new Date(endDate + 'T23:59:59.999Z')); }
 
   if (groupBy === 'month') {
     return getExpenseByMonth(storeId, startDate, endDate);
@@ -277,11 +277,11 @@ const getExpenseReport = async (storeId, { startDate, endDate, groupBy = 'catego
 };
 
 const getExpenseByMonth = async (storeId, startDate, endDate) => {
-  const conditions = [`store_id = ${storeId}`];
-  const params = [];
+  const conditions = [`store_id = ?`];
+  const params = [BigInt(storeId)];
 
-  if (startDate) { conditions.push(`expense_date >= ?`); params.push(startDate); }
-  if (endDate) { conditions.push(`expense_date <= ?`); params.push(endDate); }
+  if (startDate) { conditions.push(`expense_date >= ?`); params.push(new Date(startDate)); }
+  if (endDate) { conditions.push(`expense_date <= ?`); params.push(new Date(endDate + 'T23:59:59.999Z')); }
 
   const whereClause = conditions.join(' AND ');
   const query = `

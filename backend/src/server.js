@@ -16,6 +16,7 @@ const { connectWithRetry, disconnect } = prismaModule;
 const logger = require('./config/logger');
 const { setIO } = require('./config/socket');
 const errorHandler = require('./middleware/errorHandler');
+const breadcrumb = require('./middleware/breadcrumb');
 
 const authRoutes = require('./routes/auth');
 const storeRoutes = require('./routes/stores');
@@ -68,6 +69,7 @@ const limiter = rateLimit({
   message: { success: false, message: 'Too many requests, please try again later.' },
 });
 app.use('/api/', limiter);
+app.use('/api/', breadcrumb);
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 

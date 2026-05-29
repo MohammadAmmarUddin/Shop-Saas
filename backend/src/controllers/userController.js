@@ -59,6 +59,16 @@ const createUser = async (req, res, next) => {
 
     const { name, email, password, phone, role, permissions } = req.body;
 
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return response.error(res, 'User name is required', 400);
+    }
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      return response.error(res, 'A valid email is required', 400);
+    }
+    if (!password || password.length < 6) {
+      return response.error(res, 'Password is required and must be at least 6 characters', 400);
+    }
+
     const existing = await prisma.user.findFirst({ where: { store_id: req.tenantId, email } });
     if (existing) return response.error(res, 'Email already exists in this store', 409);
 

@@ -2,6 +2,8 @@ const Joi = require('joi');
 
 const createSaleSchema = Joi.object({
   customer_id: Joi.number().integer().positive().allow(null),
+  customer_name: Joi.string().max(100).allow('', null),
+  customer_phone: Joi.string().max(20).allow('', null),
   items: Joi.array().items(Joi.object({
     product_id: Joi.number().integer().positive().required(),
     quantity: Joi.number().min(0.001).required(),

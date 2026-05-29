@@ -165,6 +165,7 @@ model Store {
   notifications   Notification[]
   subscriptions   Subscription[]
   backups         Backup[]
+  manualPayments  ManualPayment[]
 
   @@index([email], map: "idx_stores_email")
   @@index([status], map: "idx_stores_status")
@@ -196,6 +197,7 @@ model User {
   expenses       Expense[]
   activityLogs   ActivityLog[]
   notifications  Notification[]
+  approvedPayments ManualPayment[] @relation("approvedBy")
 
   @@index([store_id], map: "idx_users_store")
   @@index([email], map: "idx_users_email")
@@ -243,8 +245,9 @@ model Subscription {
   created_at          DateTime     @default(now()) @db.Timestamp(0)
   updated_at          DateTime     @updatedAt @db.Timestamp(0)
 
-  store Store              @relation(fields: [store_id], references: [id], onDelete: Cascade, map: "fk_sub_store")
-  plan  SubscriptionPlan   @relation(fields: [plan_id], references: [id], onDelete: Cascade, map: "fk_sub_plan")
+  store          Store              @relation(fields: [store_id], references: [id], onDelete: Cascade, map: "fk_sub_store")
+  plan           SubscriptionPlan   @relation(fields: [plan_id], references: [id], onDelete: Cascade, map: "fk_sub_plan")
+  manualPayments ManualPayment[]
 
   @@index([store_id], map: "idx_sub_store")
   @@index([status], map: "idx_sub_status")
@@ -599,4 +602,47 @@ model Backup {
   @@index([store_id], map: "idx_backup_store")
   @@index([created_at], map: "idx_backup_created")
   @@map("backups")
+}
+
+model PaymentGateway {
+  id          BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  slug        String    @unique @db.VarChar(50)
+  name        String    @db.VarChar(100)
+  type        String    @db.VarChar(50)
+  instructions String?  @db.Text
+  config      Json?     @default("{}")
+  is_active   Boolean?  @default(true)
+  sort_order  Int?      @default(0)
+  created_at  DateTime  @default(now()) @db.Timestamp(0)
+  updated_at  DateTime  @updatedAt @db.Timestamp(0)
+
+  @@index([is_active], map: "idx_pg_active")
+  @@index([slug], map: "idx_pg_slug")
+  @@map("payment_gateways")
+}
+
+model ManualPayment {
+  id               BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  store_id         BigInt    @db.UnsignedBigInt
+  subscription_id  BigInt    @db.UnsignedBigInt
+  amount           Decimal   @db.Decimal(12, 2)
+  payment_method   String    @db.VarChar(50)
+  transaction_id   String?   @db.VarChar(100)
+  sender_identifier String?  @db.VarChar(50)
+  notes            String?   @db.Text
+  status           String    @default("pending") @db.VarChar(20)
+  admin_notes      String?   @db.Text
+  approved_at      DateTime? @db.DateTime(0)
+  approved_by      BigInt?   @db.UnsignedBigInt
+  created_at       DateTime  @default(now()) @db.Timestamp(0)
+  updated_at       DateTime  @updatedAt @db.Timestamp(0)
+
+  store        Store        @relation(fields: [store_id], references: [id], onDelete: Cascade, map: "fk_mp_store")
+  subscription Subscription @relation(fields: [subscription_id], references: [id], onDelete: Cascade, map: "fk_mp_subscription")
+  approvedBy   User?        @relation("approvedBy", fields: [approved_by], references: [id], onDelete: SetNull, map: "fk_mp_approved")
+
+  @@index([store_id], map: "idx_mp_store")
+  @@index([subscription_id], map: "idx_mp_subscription")
+  @@index([status], map: "idx_mp_status")
+  @@map("manual_payments")
 }

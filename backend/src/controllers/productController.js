@@ -120,6 +120,13 @@ const createProduct = async (req, res, next) => {
       expiry_date, manufacturer, batch_number, requires_prescription, images,
     } = req.body;
 
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return response.error(res, 'Product name is required', 400);
+    }
+    if (name.trim().length > 200) {
+      return response.error(res, 'Product name must be at most 200 characters', 400);
+    }
+
     const slug = generateSlug(name);
     const productBarcode = barcode || generateBarcode(barcode_type || 'code128');
 
@@ -207,6 +214,14 @@ const deleteProduct = async (req, res, next) => {
       where: { id: BigInt(req.params.id), store_id: req.tenantId },
     });
     if (!product) return response.notFound(res, 'Product not found');
+
+    const [saleRefs, purchaseRefs] = await Promise.all([
+      prisma.saleItem.count({ where: { product_id: product.id } }),
+      prisma.purchaseItem.count({ where: { product_id: product.id } }),
+    ]);
+    if (saleRefs > 0 || purchaseRefs > 0) {
+      return response.error(res, `Cannot delete: product is referenced in ${saleRefs} sale(s) and ${purchaseRefs} purchase(s). Deactivate it instead.`, 409);
+    }
 
     await prisma.product.delete({ where: { id: product.id } });
     response.success(res, null, 'Product deleted successfully');

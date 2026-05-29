@@ -12,4 +12,8 @@ router.get('/status', asyncHandler(subscriptionController.getSubscriptionStatus)
 router.post('/subscribe', asyncHandler(subscriptionController.subscribe));
 router.post('/cancel', asyncHandler(subscriptionController.cancelSubscription));
 
+router.get('/payment-methods', asyncHandler(subscriptionController.getPaymentMethods));
+router.post('/manual-payment', asyncHandler(subscriptionController.submitManualPayment));
+router.get('/payments', asyncHandler(subscriptionController.getPaymentHistory));
+
 module.exports = router;
